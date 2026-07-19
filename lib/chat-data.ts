@@ -1,0 +1,286 @@
+import type { ChatSource } from '@/types';
+
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  sources?: ChatSource[];
+  timestamp: string;
+}
+
+export interface ChatConversation {
+  id: string;
+  title: string;
+  preview: string;
+  timestamp: string;
+  messages: ChatMessage[];
+}
+
+export const mockConversations: ChatConversation[] = [
+  {
+    id: 'conv-1',
+    title: 'Q3 Invoice Analysis',
+    preview: 'What are the key findings from the Q3 invoice?',
+    timestamp: '2 min ago',
+    messages: [
+      {
+        id: 'm1',
+        role: 'user',
+        content: 'What are the key findings from the Q3 invoice?',
+        timestamp: '10:32 AM',
+      },
+      {
+        id: 'm2',
+        role: 'assistant',
+        content: [
+          'Here are the **key findings** from the Q3 invoice:',
+          '',
+          '## Summary',
+          '',
+          'The Q3 invoice shows a **12% increase** in revenue compared to Q2, driven primarily by enterprise contract renewals.',
+          '',
+          '### Key Metrics',
+          '',
+          '| Metric | Q2 | Q3 | Change |',
+          '|--------|-----|-----|--------|',
+          '| Revenue | $1.2M | $1.34M | +12% |',
+          '| Costs | $420K | $380K | -10% |',
+          '| Net Profit | $780K | $960K | +23% |',
+          '',
+          '### Notable Observations',
+          '',
+          '1. Enterprise renewals accounted for **68%** of total revenue',
+          '2. Infrastructure costs decreased by 10% due to cloud migration',
+          '3. Three new enterprise contracts were signed in September',
+          '',
+          '```python',
+          '# Revenue growth calculation',
+          'q2_revenue = 1_200_000',
+          'q3_revenue = 1_340_000',
+          'growth_rate = ((q3_revenue - q2_revenue) / q2_revenue) * 100',
+          "print(f'Q3 Growth Rate: {growth_rate:.1f}%')",
+          "# Output: Q3 Growth Rate: 12.0%",
+          '```',
+          '',
+          '> **Note:** The Q4 forecast projects 15-18% growth based on current pipeline velocity.',
+        ].join('\n'),
+        sources: [
+          {
+            id: 's1',
+            document: 'Q3-Invoice.pdf',
+            page: 2,
+            section: 'Executive Summary',
+            snippet: 'Total Q3 revenue reached $1.34M, representing a 12% increase quarter-over-quarter...',
+          },
+          {
+            id: 's2',
+            document: 'Q3-Invoice.pdf',
+            page: 7,
+            section: '4.1 Revenue Breakdown',
+            snippet: 'Enterprise contracts contributed $912K (68%) of total revenue, with 3 new deals signed in September...',
+          },
+          {
+            id: 's3',
+            document: 'Q3-Invoice.pdf',
+            page: 4,
+            section: 'Cost Analysis',
+            snippet: 'Infrastructure costs decreased 10% to $380K following the completion of cloud migration...',
+          },
+        ],
+        timestamp: '10:32 AM',
+      },
+      {
+        id: 'm3',
+        role: 'user',
+        content: 'Can you break down the enterprise revenue by contract?',
+        timestamp: '10:35 AM',
+      },
+      {
+        id: 'm4',
+        role: 'assistant',
+        content: [
+          "Here's the **enterprise revenue breakdown** by contract:",
+          '',
+          '| Contract | Client | Value | Signed |',
+          '|----------|--------|-------|--------|',
+          '| A-2024 | Acme Corp | $340K | Jul 2024 |',
+          '| B-2024 | TechFlow Inc | $280K | Aug 2024 |',
+          '| C-2024 | DataSys LLC | $292K | Sep 2024 |',
+          '',
+          '### Revenue Distribution',
+          '',
+          '- **Largest contract:** Acme Corp at $340K (37% of enterprise revenue)',
+          '- **Average deal size:** $304K',
+          '- **Sales cycle:** Averaged 45 days across all three deals',
+          '',
+          '```typescript',
+          'const contracts = [',
+          "  { client: 'Acme Corp', value: 340_000 },",
+          "  { client: 'TechFlow Inc', value: 280_000 },",
+          "  { client: 'DataSys LLC', value: 292_000 },",
+          '];',
+          '',
+          'const total = contracts.reduce((sum, c) => sum + c.value, 0);',
+          'const avg = total / contracts.length;',
+          "console.log('Average deal: $' + avg.toLocaleString());",
+          '```',
+          '',
+          'All three contracts are **12-month terms** with annual billing.',
+        ].join('\n'),
+        sources: [
+          {
+            id: 's4',
+            document: 'Q3-Invoice.pdf',
+            page: 7,
+            section: '4.1 Revenue Breakdown',
+            snippet: 'Enterprise contract A-2024 with Acme Corp valued at $340K, signed July 2024...',
+          },
+        ],
+        timestamp: '10:35 AM',
+      },
+    ],
+  },
+  {
+    id: 'conv-2',
+    title: 'Employee Manual Q&A',
+    preview: 'What is the remote work policy?',
+    timestamp: '1 hour ago',
+    messages: [
+      {
+        id: 'm5',
+        role: 'user',
+        content: 'What is the remote work policy?',
+        timestamp: '9:15 AM',
+      },
+      {
+        id: 'm6',
+        role: 'assistant',
+        content: [
+          "Based on the employee manual, here's the **remote work policy**:",
+          '',
+          '## Remote Work Guidelines',
+          '',
+          'Employees are eligible for remote work under the following conditions:',
+          '',
+          '1. **Full-time remote:** Available to senior staff (2+ years tenure)',
+          '2. **Hybrid (3 days office / 2 days remote):** Default for all staff',
+          '3. **Temporary remote:** Up to 2 weeks with manager approval',
+          '',
+          '### Core Requirements',
+          '',
+          '- Must be online during core hours (10 AM - 3 PM EST)',
+          '- Weekly team standup attendance is mandatory',
+          '- Equipment stipend of **$500/year** for home office setup',
+          '',
+          '> "Remote work is a privilege, not a right. Performance and collaboration standards must be maintained at all times." - Section 4.1',
+          '',
+          'For full details, refer to **Section 4.1** of the Employee Manual.',
+        ].join('\n'),
+        sources: [
+          {
+            id: 's5',
+            document: 'Employee-Manual.pdf',
+            page: 7,
+            section: '4.1 Remote Work Policy',
+            snippet: 'Employees may work remotely under three arrangements: full-time, hybrid, or temporary. Core hours are 10 AM-3 PM EST...',
+          },
+        ],
+        timestamp: '9:15 AM',
+      },
+    ],
+  },
+  {
+    id: 'conv-3',
+    title: 'Research Paper Review',
+    preview: 'Summarize the methodology section',
+    timestamp: '3 hours ago',
+    messages: [
+      {
+        id: 'm7',
+        role: 'user',
+        content: 'Summarize the methodology section',
+        timestamp: '7:48 AM',
+      },
+      {
+        id: 'm8',
+        role: 'assistant',
+        content: [
+          "Here's a **summary of the methodology** from the research paper:",
+          '',
+          '## Methodology Overview',
+          '',
+          'The study employed a **mixed-methods approach** combining quantitative data analysis with qualitative interviews.',
+          '',
+          '### Research Design',
+          '',
+          '| Phase | Method | Sample Size | Duration |',
+          '|-------|--------|-------------|----------|',
+          '| 1 | Survey | 1,200 | 4 weeks |',
+          '| 2 | Interviews | 45 | 8 weeks |',
+          '| 3 | Analysis | - | 6 weeks |',
+          '',
+          '### Key Techniques',
+          '',
+          '- **Statistical analysis** using Python (scipy, pandas)',
+          '- **Thematic coding** of interview transcripts',
+          '- **Cross-validation** of quantitative and qualitative findings',
+          '',
+          '```python',
+          'import pandas as pd',
+          'from scipy import stats',
+          '',
+          '# Phase 1: Survey analysis',
+          'survey_data = pd.read_csv("responses.csv")',
+          'results = stats.ttest_ind(',
+          '    survey_data[survey_data["group"] == "treatment"]["score"],',
+          '    survey_data[survey_data["group"] == "control"]["score"]',
+          ')',
+          'print(f"p-value: {results.pvalue:.4f}")',
+          '```',
+          '',
+          'The methodology ensures **reproducibility** and **validity** through triangulation of data sources.',
+        ].join('\n'),
+        sources: [
+          {
+            id: 's6',
+            document: 'Research-Paper.pdf',
+            page: 3,
+            section: '2. Methodology',
+            snippet: 'A mixed-methods approach was employed, combining survey data (n=1200) with semi-structured interviews (n=45)...',
+          },
+          {
+            id: 's7',
+            document: 'Research-Paper.pdf',
+            page: 5,
+            section: '2.3 Data Analysis',
+            snippet: 'Statistical analysis was conducted using Python with scipy and pandas libraries. Thematic coding was applied to interview data...',
+          },
+        ],
+        timestamp: '7:48 AM',
+      },
+    ],
+  },
+];
+
+export const mockSuggestedPrompts = [
+  {
+    title: 'Summarize a document',
+    prompt: 'Summarize the key points of the Q3 Invoice',
+    icon: 'FileText',
+  },
+  {
+    title: 'Extract data',
+    prompt: 'Extract all financial figures from the Annual Report',
+    icon: 'Table',
+  },
+  {
+    title: 'Compare documents',
+    prompt: 'Compare the Q2 and Q3 revenue breakdowns',
+    icon: 'GitCompare',
+  },
+  {
+    title: 'Ask about policy',
+    prompt: 'What is the vacation policy in the Employee Manual?',
+    icon: 'HelpCircle',
+  },
+];
