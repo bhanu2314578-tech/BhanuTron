@@ -4,7 +4,6 @@ import * as React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 
 import { authService } from '@/services/auth.service';
-import { tokenStorage } from '@/lib/token';
 import type { User } from '@/types';
 
 interface AuthContextValue {
@@ -14,6 +13,7 @@ interface AuthContextValue {
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (name: string, email: string, password: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -30,9 +30,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const storedToken = tokenStorage.get();
-    setToken(storedToken);
-    setIsLoading(false);
+    let mounted = true;
+
+    void authService.getCurrentUser().then((currentUser) => {
+      if (!mounted) return;
+      setUser(currentUser);
+    });
+
+    void authService.getSessionToken().then((sessionToken) => {
+      if (!mounted) return;
+      setToken(sessionToken);
+      setIsLoading(false);
+    });
+
+    const { data: subscription } = authService.onAuthStateChange((nextUser, nextToken) => {
+      setUser(nextUser);
+      setToken(nextToken);
+      setIsLoading(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.subscription.unsubscribe();
+    };
   }, []);
 
   React.useEffect(() => {
@@ -63,6 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     []
   );
 
+  const loginWithGoogle = React.useCallback(async () => {
+    await authService.loginWithGoogle();
+  }, []);
+
   const logout = React.useCallback(async () => {
     await authService.logout();
     setToken(null);
@@ -78,9 +102,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       login,
       signup,
+      loginWithGoogle,
       logout,
     }),
-    [user, token, isLoading, login, signup, logout]
+    [user, token, isLoading, login, signup, loginWithGoogle, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

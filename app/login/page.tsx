@@ -29,7 +29,7 @@ import { useAuth } from '@/components/providers/auth-provider';
 
 export default function LoginPage() {
   const [googleLoading, setGoogleLoading] = React.useState(false);
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const router = useRouter();
 
   const form = useForm<LoginInput>({
@@ -53,9 +53,14 @@ export default function LoginPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setGoogleLoading(false);
-    toast.success('Signed in with Google');
+    try {
+      await loginWithGoogle();
+    } catch (err) {
+      toast.error('Google sign in failed', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+      setGoogleLoading(false);
+    }
   };
 
   return (

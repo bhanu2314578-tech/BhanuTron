@@ -28,7 +28,7 @@ import { useAuth } from '@/components/providers/auth-provider';
 
 export default function SignupPage() {
   const [googleLoading, setGoogleLoading] = React.useState(false);
-  const { signup } = useAuth();
+  const { signup, loginWithGoogle } = useAuth();
   const router = useRouter();
 
   const form = useForm<RegisterInput>({
@@ -52,9 +52,14 @@ export default function SignupPage() {
 
   const handleGoogle = async () => {
     setGoogleLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setGoogleLoading(false);
-    toast.success('Signed up with Google');
+    try {
+      await loginWithGoogle();
+    } catch (err) {
+      toast.error('Google sign up failed', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+      setGoogleLoading(false);
+    }
   };
 
   return (
