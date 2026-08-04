@@ -40,7 +40,6 @@ export interface DocumentItem {
 
 export interface ChatRequest {
   question: string;
-  conversationId?: string;
   documentId?: string;
 }
 
@@ -72,39 +71,4 @@ export interface UpdateProfileInput {
   lastName?: string;
   email?: string;
   role?: string;
-}
-
-export interface HistoryMessage {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  sources?: ChatSource[];
-  timestamp: string;
-}
-
-export interface HistoryConversation {
-  id: string;
-  title: string;
-  preview: string;
-  timestamp: string;
-  messages?: HistoryMessage[];
-}
-
-export interface UsageStat {
-  label: string;
-  value: string;
-  change: string;
-  icon: string;
-}
-
-export interface UsageSeriesPoint {
-  date: string;
-  tokens?: number;
-  messages?: number;
-}
-
-export interface UsageResponse {
-  stats: UsageStat[];
-  tokenUsage: UsageSeriesPoint[];
-  messageUsage: UsageSeriesPoint[];
 }

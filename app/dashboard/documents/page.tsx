@@ -70,7 +70,7 @@ const PAGE_SIZE = 6;
 type SortKey = 'date-desc' | 'date-asc' | 'name-asc' | 'name-desc';
 
 export default function DocumentsPage() {
-  const [docs, setDocs] = React.useState<MockDocument[]>([]);
+  const [docs, setDocs] = React.useState<MockDocument[]>(mockDocuments);
   const [search, setSearch] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState<string>('all');
   const [sortBy, setSortBy] = React.useState<SortKey>('date-desc');
@@ -184,18 +184,11 @@ export default function DocumentsPage() {
     setRenameDoc(null);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!deleteDoc) return;
-    try {
-      await documentService.delete(deleteDoc.id);
-      setDocs((prev) => prev.filter((d) => d.id !== deleteDoc.id));
-      toast.success('Document deleted');
-      setDeleteDoc(null);
-    } catch (err) {
-      toast.error('Failed to delete document', {
-        description: err instanceof Error ? err.message : 'Please try again.',
-      });
-    }
+    setDocs((prev) => prev.filter((d) => d.id !== deleteDoc.id));
+    toast.success('Document deleted');
+    setDeleteDoc(null);
   };
 
   return (

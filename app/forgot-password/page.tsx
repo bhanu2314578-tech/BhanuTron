@@ -22,7 +22,6 @@ import {
   forgotPasswordSchema,
   type ForgotPasswordInput,
 } from '@/lib/validations';
-import { authService } from '@/services/auth.service';
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = React.useState(false);
@@ -34,7 +33,7 @@ export default function ForgotPasswordPage() {
 
   const onSubmit = async (values: ForgotPasswordInput) => {
     try {
-      await authService.resetPassword(values.email);
+      await new Promise((r) => setTimeout(r, 1200));
       setSent(true);
       toast.success('Reset link sent', {
         description: `Check ${values.email} for instructions.`,
