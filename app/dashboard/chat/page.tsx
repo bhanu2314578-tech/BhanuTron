@@ -27,94 +27,27 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { chatService, historyService } from '@/services/api.service';
+import { chatService } from '@/services/api.service';
 import {
+  mockConversations,
   mockSuggestedPrompts,
   type ChatMessage,
   type ChatConversation,
 } from '@/lib/chat-data';
 
-function formatTime(value?: string) {
-  if (!value) {
-    return new Date().toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-    });
-  }
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-function mapConversation(conversation: {
-  id: string;
-  title: string;
-  preview: string;
-  timestamp: string;
-  messages?: ChatMessage[];
-}): ChatConversation {
-  return {
-    id: conversation.id,
-    title: conversation.title,
-    preview: conversation.preview,
-    timestamp: conversation.timestamp,
-    messages:
-      conversation.messages?.map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        sources: message.sources,
-        timestamp: formatTime(message.timestamp),
-      })) ?? [],
-  };
-}
-
 export default function ChatPage() {
-  const [conversations, setConversations] = React.useState<ChatConversation[]>([]);
-  const [activeId, setActiveId] = React.useState<string>('');
-  const [messages, setMessages] = React.useState<ChatMessage[]>([]);
+  const [conversations, setConversations] =
+    React.useState<ChatConversation[]>(mockConversations);
+  const [activeId, setActiveId] = React.useState(mockConversations[0].id);
+  const [messages, setMessages] = React.useState<ChatMessage[]>(
+    mockConversations[0].messages
+  );
   const [input, setInput] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
   const [search, setSearch] = React.useState('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
-  const [isLoadingConversations, setIsLoadingConversations] = React.useState(true);
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
-
-  const refreshConversations = React.useCallback(async () => {
-    try {
-      const items = await historyService.list();
-      const mapped = items.map(mapConversation);
-      setConversations(mapped);
-      return mapped;
-    } catch (err) {
-      toast.error('Failed to load conversations', {
-        description: err instanceof Error ? err.message : 'Please try again.',
-      });
-      return [];
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void (async () => {
-      setIsLoadingConversations(true);
-      const mapped = await refreshConversations();
-      if (mapped.length > 0) {
-        setActiveId(mapped[0].id);
-        setMessages(mapped[0].messages);
-      } else {
-        const created = await historyService.create();
-        const conversation = mapConversation(created);
-        setConversations([conversation]);
-        setActiveId(conversation.id);
-        setMessages([]);
-      }
-      setIsLoadingConversations(false);
-    })();
-  }, [refreshConversations]);
 
   const activeConversation = conversations.find((c) => c.id === activeId);
 
@@ -131,56 +64,37 @@ export default function ChatPage() {
     }
   }, [messages, isTyping]);
 
-  const handleSelectConversation = async (conv: ChatConversation) => {
+  const handleSelectConversation = (conv: ChatConversation) => {
     setActiveId(conv.id);
+    setMessages(conv.messages);
     setMobileSidebarOpen(false);
-    try {
-      const full = await historyService.get(conv.id);
-      const mapped = mapConversation(full);
-      setMessages(mapped.messages);
-      setConversations((prev) =>
-        prev.map((item) => (item.id === mapped.id ? mapped : item))
-      );
-    } catch (err) {
-      toast.error('Failed to load conversation', {
-        description: err instanceof Error ? err.message : 'Please try again.',
-      });
-      setMessages(conv.messages);
-    }
   };
 
-  const handleNewChat = async () => {
-    try {
-      const created = await historyService.create();
-      const newConv = mapConversation(created);
-      setConversations((prev) => [newConv, ...prev]);
-      setActiveId(newConv.id);
-      setMessages([]);
-      setInput('');
-      setMobileSidebarOpen(false);
-    } catch (err) {
-      toast.error('Failed to create chat', {
-        description: err instanceof Error ? err.message : 'Please try again.',
-      });
-    }
+  const handleNewChat = () => {
+    const newConv: ChatConversation = {
+      id: `conv-${Date.now()}`,
+      title: 'New Chat',
+      preview: '',
+      timestamp: 'Just now',
+      messages: [],
+    };
+    setConversations((prev) => [newConv, ...prev]);
+    setActiveId(newConv.id);
+    setMessages([]);
+    setInput('');
+    setMobileSidebarOpen(false);
   };
 
-  const handleDeleteConversation = async (id: string) => {
-    try {
-      await historyService.delete(id);
-      const filtered = conversations.filter((c) => c.id !== id);
-      setConversations(filtered);
-      if (id === activeId) {
-        if (filtered.length > 0) {
-          await handleSelectConversation(filtered[0]);
-        } else {
-          await handleNewChat();
-        }
+  const handleDeleteConversation = (id: string) => {
+    const filtered = conversations.filter((c) => c.id !== id);
+    setConversations(filtered);
+    if (id === activeId) {
+      if (filtered.length > 0) {
+        setActiveId(filtered[0].id);
+        setMessages(filtered[0].messages);
+      } else {
+        handleNewChat();
       }
-    } catch (err) {
-      toast.error('Failed to delete conversation', {
-        description: err instanceof Error ? err.message : 'Please try again.',
-      });
     }
   };
 
@@ -202,71 +116,27 @@ export default function ChatPage() {
     setInput('');
     setIsTyping(true);
 
-    const assistantId = `a-${Date.now()}`;
-    let conversationId = activeId;
-
     try {
-      await chatService.stream(
-        {
-          question: content,
-          conversationId: activeId || undefined,
-        },
-        {
-          onMeta: (data) => {
-            conversationId = data.conversationId;
-            setActiveId(data.conversationId);
-            setIsTyping(false);
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: assistantId,
-                role: 'assistant',
-                content: '',
-                sources: data.sources,
-                timestamp: new Date().toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                }),
-              },
-            ]);
-          },
-          onToken: (token) => {
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantId
-                  ? { ...message, content: message.content + token }
-                  : message
-              )
-            );
-          },
-          onDone: (data) => {
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantId
-                  ? {
-                      ...message,
-                      content: data.answer,
-                      sources: data.sources,
-                    }
-                  : message
-              )
-            );
-            void refreshConversations();
-          },
-          onError: (message) => {
-            toast.error('Chat request failed', { description: message });
-          },
-        }
-      );
+      const res = await chatService.send({
+        question: content,
+      });
+      const reply: ChatMessage = {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: res.answer,
+        sources: res.sources,
+        timestamp: new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+      };
+      setMessages((prev) => [...prev, reply]);
     } catch (err) {
       toast.error('Chat request failed', {
         description: err instanceof Error ? err.message : 'Please try again.',
       });
     } finally {
       setIsTyping(false);
-      if (conversationId) {
-        setActiveId(conversationId);
-      }
     }
   };
 
@@ -286,60 +156,20 @@ export default function ChatPage() {
       setMessages((prev) => prev.filter((m) => m.id !== lastAssistant.id));
     }
     setIsTyping(true);
-    const assistantId = `a-${Date.now()}`;
 
     try {
-      await chatService.stream(
-        {
-          question: lastUser.content,
-          conversationId: activeId || undefined,
-        },
-        {
-          onMeta: (data) => {
-            setActiveId(data.conversationId);
-            setIsTyping(false);
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: assistantId,
-                role: 'assistant',
-                content: '',
-                sources: data.sources,
-                timestamp: new Date().toLocaleTimeString('en-US', {
-                  hour: 'numeric',
-                  minute: '2-digit',
-                }),
-              },
-            ]);
-          },
-          onToken: (token) => {
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantId
-                  ? { ...message, content: message.content + token }
-                  : message
-              )
-            );
-          },
-          onDone: (data) => {
-            setMessages((prev) =>
-              prev.map((message) =>
-                message.id === assistantId
-                  ? {
-                      ...message,
-                      content: data.answer,
-                      sources: data.sources,
-                    }
-                  : message
-              )
-            );
-            void refreshConversations();
-          },
-          onError: (message) => {
-            toast.error('Chat request failed', { description: message });
-          },
-        }
-      );
+      const res = await chatService.send({ question: lastUser.content });
+      const reply: ChatMessage = {
+        id: `a-${Date.now()}`,
+        role: 'assistant',
+        content: res.answer,
+        sources: res.sources,
+        timestamp: new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+        }),
+      };
+      setMessages((prev) => [...prev, reply]);
     } catch (err) {
       toast.error('Chat request failed', {
         description: err instanceof Error ? err.message : 'Please try again.',
@@ -348,14 +178,6 @@ export default function ChatPage() {
       setIsTyping(false);
     }
   };
-
-  if (isLoadingConversations) {
-    return (
-      <div className="flex h-[calc(100vh-4rem)] items-center justify-center lg:h-screen">
-        <p className="text-sm text-muted-foreground">Loading conversations...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden lg:h-screen">

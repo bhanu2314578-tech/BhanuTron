@@ -22,7 +22,6 @@ import {
   resetPasswordSchema,
   type ResetPasswordInput,
 } from '@/lib/validations';
-import { authService } from '@/services/auth.service';
 
 export default function ResetPasswordPage() {
   const [done, setDone] = React.useState(false);
@@ -34,7 +33,7 @@ export default function ResetPasswordPage() {
 
   const onSubmit = async (values: ResetPasswordInput) => {
     try {
-      await authService.updatePassword(values.password);
+      await new Promise((r) => setTimeout(r, 1200));
       setDone(true);
       toast.success('Password reset successfully');
     } catch (err) {

@@ -13,7 +13,6 @@ import {
   ArrowRight,
   X,
 } from 'lucide-react';
-import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,61 +34,24 @@ import {
   DialogClose,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { historyService } from '@/services/api.service';
-import type { HistoryConversation } from '@/types';
-
-type ConversationGroup = 'Today' | 'Yesterday' | 'Last Week';
+import {
+  mockHistoryConversations,
+  type MockHistoryConversation,
+  type ConversationGroup,
+} from '@/lib/mock-data';
 
 const groupOrder: ConversationGroup[] = ['Today', 'Yesterday', 'Last Week'];
 
-function groupConversations(conversations: HistoryConversation[]) {
-  const groups: Record<ConversationGroup, HistoryConversation[]> = {
-    Today: [],
-    Yesterday: [],
-    'Last Week': [],
-  };
-
-  for (const conversation of conversations) {
-    const label = conversation.timestamp.toLowerCase();
-    if (label.includes('just now') || label.endsWith('m ago') || label.endsWith('h ago')) {
-      groups.Today.push(conversation);
-    } else if (label.endsWith('d ago') && parseInt(label, 10) <= 1) {
-      groups.Yesterday.push(conversation);
-    } else {
-      groups['Last Week'].push(conversation);
-    }
-  }
-
-  return groups;
-}
-
 export default function HistoryPage() {
-  const [conversations, setConversations] = React.useState<HistoryConversation[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [conversations, setConversations] = React.useState(
+    mockHistoryConversations
+  );
   const [search, setSearch] = React.useState('');
   const [renameTarget, setRenameTarget] =
-    React.useState<HistoryConversation | null>(null);
+    React.useState<MockHistoryConversation | null>(null);
   const [renameValue, setRenameValue] = React.useState('');
   const [deleteTarget, setDeleteTarget] =
-    React.useState<HistoryConversation | null>(null);
-
-  const loadHistory = React.useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const items = await historyService.list();
-      setConversations(items);
-    } catch (err) {
-      toast.error('Failed to load history', {
-        description: err instanceof Error ? err.message : 'Please try again.',
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    void loadHistory();
-  }, [loadHistory]);
+    React.useState<MockHistoryConversation | null>(null);
 
   const filtered = React.useMemo(() => {
     if (!search.trim()) return conversations;
@@ -100,45 +62,33 @@ export default function HistoryPage() {
     );
   }, [conversations, search]);
 
-  const grouped = React.useMemo(() => groupConversations(filtered), [filtered]);
+  const grouped = React.useMemo(() => {
+    const map: Record<ConversationGroup, MockHistoryConversation[]> = {
+      Today: [],
+      Yesterday: [],
+      'Last Week': [],
+    };
+    for (const c of filtered) {
+      map[c.group].push(c);
+    }
+    return map;
+  }, [filtered]);
 
-  const handleRename = async () => {
+  const handleRename = () => {
     if (!renameTarget || !renameValue.trim()) return;
-    try {
-      const updated = await historyService.rename(renameTarget.id, renameValue.trim());
-      setConversations((prev) =>
-        prev.map((item) => (item.id === updated.id ? updated : item))
-      );
-      toast.success('Conversation renamed');
-      setRenameTarget(null);
-    } catch (err) {
-      toast.error('Failed to rename conversation', {
-        description: err instanceof Error ? err.message : 'Please try again.',
-      });
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!deleteTarget) return;
-    try {
-      await historyService.delete(deleteTarget.id);
-      setConversations((prev) => prev.filter((item) => item.id !== deleteTarget.id));
-      toast.success('Conversation deleted');
-      setDeleteTarget(null);
-    } catch (err) {
-      toast.error('Failed to delete conversation', {
-        description: err instanceof Error ? err.message : 'Please try again.',
-      });
-    }
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center p-6">
-        <p className="text-sm text-muted-foreground">Loading history...</p>
-      </div>
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === renameTarget.id ? { ...c, title: renameValue.trim() } : c
+      )
     );
-  }
+    setRenameTarget(null);
+  };
+
+  const handleDelete = () => {
+    if (!deleteTarget) return;
+    setConversations((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+    setDeleteTarget(null);
+  };
 
   return (
     <div className="p-6 lg:p-8">
@@ -215,12 +165,18 @@ export default function HistoryPage() {
                               <p className="truncate text-sm font-medium">
                                 {conv.title}
                               </p>
+                              {conv.document && (
+                                <Badge variant="secondary" className="shrink-0">
+                                  <FileText className="mr-1 h-3 w-3" />
+                                  {conv.document}
+                                </Badge>
+                              )}
                             </div>
                             <p className="mt-0.5 truncate text-xs text-muted-foreground">
                               {conv.preview}
                             </p>
                             <p className="mt-1 text-xs text-muted-foreground">
-                              {conv.timestamp}
+                              {conv.timestamp} · {conv.messageCount} messages
                             </p>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
@@ -230,7 +186,7 @@ export default function HistoryPage() {
                               size="sm"
                               className="hidden sm:flex"
                             >
-                              <Link href={`/dashboard/chat?conversation=${conv.id}`}>
+                              <Link href="/dashboard/chat">
                                 Continue
                                 <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
                               </Link>
@@ -247,7 +203,7 @@ export default function HistoryPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-44">
                                 <DropdownMenuItem asChild>
-                                  <Link href={`/dashboard/chat?conversation=${conv.id}`}>
+                                  <Link href="/dashboard/chat">
                                     <ArrowRight className="mr-2 h-3.5 w-3.5" />
                                     Continue Chat
                                   </Link>
