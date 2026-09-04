@@ -37,6 +37,27 @@ export const documentService = {
       throw new Error(res.error);
     }
   },
+
+  async rename(id: string, name: string): Promise<DocumentItem> {
+    const res = await apiRequest<DocumentItem>(`${API_ROUTES.documents}/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+    if (res.error || !res.data) {
+      throw new Error(res.error ?? 'Failed to rename document');
+    }
+    return res.data;
+  },
+
+  async download(id: string): Promise<string> {
+    const res = await apiRequest<{ url: string }>(
+      `${API_ROUTES.documents}/${id}/download`
+    );
+    if (res.error || !res.data?.url) {
+      throw new Error(res.error ?? 'Failed to create download link');
+    }
+    return res.data.url;
+  },
 };
 
 export const chatService = {

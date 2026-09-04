@@ -173,15 +173,29 @@ export default function DocumentsPage() {
     files.forEach((file) => handleUpload(file));
   };
 
-  const handleRename = () => {
+  const handleRename = async () => {
     if (!renameDoc || !renameValue.trim()) return;
-    setDocs((prev) =>
-      prev.map((d) =>
-        d.id === renameDoc.id ? { ...d, name: renameValue.trim() } : d
-      )
-    );
-    toast.success('Document renamed');
-    setRenameDoc(null);
+    try {
+      const updated = await documentService.rename(renameDoc.id, renameValue.trim());
+      setDocs((prev) => prev.map((doc) => (doc.id === updated.id ? updated : doc)));
+      toast.success('Document renamed');
+      setRenameDoc(null);
+    } catch (err) {
+      toast.error('Failed to rename document', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+    }
+  };
+
+  const handleDownload = async (doc: MockDocument) => {
+    try {
+      const url = await documentService.download(doc.id);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      toast.error('Failed to download document', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+    }
   };
 
   const handleDelete = async () => {
@@ -353,7 +367,7 @@ export default function DocumentsPage() {
                           </Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() => toast.success(`Downloading ${doc.name}`)}
+                          onClick={() => void handleDownload(doc)}
                         >
                           <Download className="mr-2 h-4 w-4" />
                           Download

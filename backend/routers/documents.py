@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 
+from config import settings
 from routers.auth import AuthUser, get_current_user
 from services.document_processor import process_document
 from services.supabase_client import get_supabase
@@ -28,6 +29,10 @@ class DocumentResponse(BaseModel):
     status: str
     size: str
     type: str
+
+
+class RenameDocumentRequest(BaseModel):
+    name: str
 
 
 def _format_size(size_bytes: int) -> str:
@@ -150,6 +155,59 @@ async def upload_document(
         ) from exc
 
     return _serialize_document(document)
+
+
+@router.patch("/{document_id}", response_model=DocumentResponse)
+async def rename_document(
+    document_id: str,
+    payload: RenameDocumentRequest,
+    user: AuthUser = Depends(get_current_user),
+):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Document name is required")
+
+    supabase = get_supabase()
+    updated = (
+        supabase.table("documents")
+        .update({"name": name})
+        .eq("id", document_id)
+        .eq("user_id", user.id)
+        .execute()
+    ).data
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    return _serialize_document(updated[0])
+
+
+@router.get("/{document_id}/download")
+async def download_document(
+    document_id: str,
+    user: AuthUser = Depends(get_current_user),
+):
+    supabase = get_supabase()
+    document = (
+        supabase.table("documents")
+        .select("storage_path")
+        .eq("id", document_id)
+        .eq("user_id", user.id)
+        .maybe_single()
+        .execute()
+    ).data
+    if not document:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    signed = supabase.storage.from_(settings.storage_bucket).create_signed_url(
+        document["storage_path"], 300
+    )
+    if not signed or not signed.get("signedURL"):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create download link",
+        )
+
+    return {"url": signed["signedURL"]}
 
 
 @router.delete("/{document_id}", status_code=status.HTTP_204_NO_CONTENT)
