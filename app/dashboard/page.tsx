@@ -1,9 +1,8 @@
 'use client';
 
+import * as React from 'react';
 import Link from 'next/link';
 import {
-  TrendingUp,
-  TrendingDown,
   FileText,
   MessageSquare,
   Quote,
@@ -37,13 +36,10 @@ import {
   Tooltip,
 } from 'recharts';
 import {
-  mockStats,
-  mockActivity,
-  mockDocuments,
-  mockUsageData,
-  storageUsedGB,
-  storageTotalGB,
-} from '@/lib/mock-data';
+  documentService,
+  usageService,
+} from '@/services/api.service';
+import type { DocumentItem, UsageResponse } from '@/types';
 import { formatDate } from '@/lib/format';
 import { statusVariant, statusLabel } from '@/constants/document';
 
@@ -55,8 +51,29 @@ const chartConfig = {
 };
 
 export default function DashboardPage() {
-  const recentDocs = mockDocuments.slice(0, 4);
-  const storagePercent = Math.round((storageUsedGB / storageTotalGB) * 100);
+  const [documents, setDocuments] = React.useState<DocumentItem[]>([]);
+  const [usage, setUsage] = React.useState<UsageResponse | null>(null);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    void Promise.all([documentService.list(), usageService.get()])
+      .then(([loadedDocuments, loadedUsage]) => {
+        setDocuments(loadedDocuments);
+        setUsage(loadedUsage);
+      })
+      .catch(() => undefined)
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const recentDocs = documents.slice(0, 4);
+  const stats = usage?.stats ?? [];
+  const storageStat = stats.find((stat) => stat.icon === 'storage');
+  const storagePercent = 0;
+  const chartData = usage?.messageUsage.map((point) => ({
+    month: point.date,
+    chats: point.messages ?? 0,
+    documents: documents.length,
+  })) ?? [];
 
   return (
     <div className="p-6 lg:p-8">
@@ -74,7 +91,7 @@ export default function DashboardPage() {
                 Welcome back, Jane
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                You have 3 new documents and 12 unread chat responses.
+                {isLoading ? 'Loading your workspace...' : `${documents.length} documents available in your workspace.`}
               </p>
             </div>
             <div className="flex gap-2">
@@ -97,9 +114,8 @@ export default function DashboardPage() {
 
       {/* Quick stats */}
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {mockStats.map((stat, i) => {
-          const Icon = statIcons[i];
-          const TrendIcon = stat.trend === 'up' ? TrendingUp : TrendingDown;
+        {stats.map((stat, i) => {
+          const Icon = statIcons[i % statIcons.length];
           return (
             <motion.div
               key={stat.label}
@@ -114,11 +130,8 @@ export default function DashboardPage() {
                       <Icon className="h-4 w-4" />
                     </span>
                     <span
-                      className={`flex items-center gap-1 text-xs font-medium ${
-                        stat.trend === 'up' ? 'text-success' : 'text-destructive'
-                      }`}
+                      className="flex items-center gap-1 text-xs font-medium text-muted-foreground"
                     >
-                      <TrendIcon className="h-3 w-3" />
                       {stat.change}
                     </span>
                   </div>
@@ -148,7 +161,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <ChartContainer config={chartConfig} className="h-[260px] w-full">
-                <RechartsLineChart data={mockUsageData}>
+                <RechartsLineChart data={chartData}>
                   <CartesianGrid vertical={false} strokeDasharray="3 3" />
                   <XAxis dataKey="month" tickLine={false} axisLine={false} />
                   <YAxis tickLine={false} axisLine={false} width={32} />
@@ -169,7 +182,7 @@ export default function DashboardPage() {
           <Card className="h-full">
             <CardHeader>
               <CardTitle className="text-base">Storage Usage</CardTitle>
-              <CardDescription>{storageUsedGB} GB of {storageTotalGB} GB used</CardDescription>
+              <CardDescription>{storageStat?.value ?? '0 KB'} used</CardDescription>
             </CardHeader>
             <CardContent className="flex h-[260px] flex-col items-center justify-center gap-4">
               <div className="relative flex h-32 w-32 items-center justify-center">
@@ -218,15 +231,15 @@ export default function DashboardPage() {
               <CardTitle className="text-base">Recent Activity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {mockActivity.map((item) => (
+              {recentDocs.map((item) => (
                 <div key={item.id} className="flex items-start gap-3">
                   <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
                   <div className="flex-1">
                     <p className="text-sm">
-                      <span className="font-medium">{item.action}</span>{' '}
-                      <span className="text-muted-foreground">{item.target}</span>
+                      <span className="font-medium">{item.status}</span>{' '}
+                      <span className="text-muted-foreground">{item.name}</span>
                     </p>
-                    <p className="text-xs text-muted-foreground">{item.time}</p>
+                    <p className="text-xs text-muted-foreground">{formatDate(item.uploadDate)}</p>
                   </div>
                 </div>
               ))}

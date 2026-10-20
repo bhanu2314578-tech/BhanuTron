@@ -27,29 +27,61 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { chatService } from '@/services/api.service';
+import { chatService, historyService } from '@/services/api.service';
 import {
-  mockConversations,
   mockSuggestedPrompts,
   type ChatMessage,
   type ChatConversation,
 } from '@/lib/chat-data';
+import type { HistoryConversation } from '@/types';
 
 export default function ChatPage() {
-  const [conversations, setConversations] =
-    React.useState<ChatConversation[]>(mockConversations);
-  const [activeId, setActiveId] = React.useState(mockConversations[0].id);
-  const [messages, setMessages] = React.useState<ChatMessage[]>(
-    mockConversations[0].messages
-  );
+  const [conversations, setConversations] = React.useState<ChatConversation[]>([]);
+  const [activeId, setActiveId] = React.useState('');
+  const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [input, setInput] = React.useState('');
   const [isTyping, setIsTyping] = React.useState(false);
   const [search, setSearch] = React.useState('');
   const [mobileSidebarOpen, setMobileSidebarOpen] = React.useState(false);
+  const [isLoading, setIsLoading] = React.useState(true);
 
   const scrollRef = React.useRef<HTMLDivElement>(null);
 
   const activeConversation = conversations.find((c) => c.id === activeId);
+
+  const mapConversation = (conversation: HistoryConversation): ChatConversation => ({
+    id: conversation.id,
+    title: conversation.title,
+    preview: conversation.preview,
+    timestamp: conversation.timestamp,
+    messages: (conversation.messages ?? []).map((message) => ({
+      id: message.id,
+      role: message.role,
+      content: message.content,
+      sources: message.sources,
+      timestamp: message.timestamp,
+    })),
+  });
+
+  React.useEffect(() => {
+    void (async () => {
+      try {
+        let loaded = (await historyService.list()).map(mapConversation);
+        if (loaded.length === 0) {
+          loaded = [mapConversation(await historyService.create())];
+        }
+        setConversations(loaded);
+        setActiveId(loaded[0].id);
+        setMessages(loaded[0].messages);
+      } catch (err) {
+        toast.error('Failed to load chat history', {
+          description: err instanceof Error ? err.message : 'Please try again.',
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    })();
+  }, []);
 
   const filteredConversations = React.useMemo(() => {
     if (!search) return conversations;
@@ -64,20 +96,29 @@ export default function ChatPage() {
     }
   }, [messages, isTyping]);
 
-  const handleSelectConversation = (conv: ChatConversation) => {
-    setActiveId(conv.id);
-    setMessages(conv.messages);
+  const handleSelectConversation = async (conv: ChatConversation) => {
+    try {
+      const loaded = mapConversation(await historyService.get(conv.id));
+      setActiveId(loaded.id);
+      setMessages(loaded.messages);
+    } catch (err) {
+      toast.error('Failed to load conversation', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+    }
     setMobileSidebarOpen(false);
   };
 
-  const handleNewChat = () => {
-    const newConv: ChatConversation = {
-      id: `conv-${Date.now()}`,
-      title: 'New Chat',
-      preview: '',
-      timestamp: 'Just now',
-      messages: [],
-    };
+  const handleNewChat = async () => {
+    let newConv: ChatConversation;
+    try {
+      newConv = mapConversation(await historyService.create());
+    } catch (err) {
+      toast.error('Failed to create chat', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+      return;
+    }
     setConversations((prev) => [newConv, ...prev]);
     setActiveId(newConv.id);
     setMessages([]);
@@ -85,7 +126,15 @@ export default function ChatPage() {
     setMobileSidebarOpen(false);
   };
 
-  const handleDeleteConversation = (id: string) => {
+  const handleDeleteConversation = async (id: string) => {
+    try {
+      await historyService.delete(id);
+    } catch (err) {
+      toast.error('Failed to delete chat', {
+        description: err instanceof Error ? err.message : 'Please try again.',
+      });
+      return;
+    }
     const filtered = conversations.filter((c) => c.id !== id);
     setConversations(filtered);
     if (id === activeId) {
@@ -93,7 +142,7 @@ export default function ChatPage() {
         setActiveId(filtered[0].id);
         setMessages(filtered[0].messages);
       } else {
-        handleNewChat();
+        await handleNewChat();
       }
     }
   };
@@ -119,6 +168,7 @@ export default function ChatPage() {
     try {
       const res = await chatService.send({
         question: content,
+        conversationId: activeId || undefined,
       });
       const reply: ChatMessage = {
         id: `a-${Date.now()}`,
@@ -158,7 +208,10 @@ export default function ChatPage() {
     setIsTyping(true);
 
     try {
-      const res = await chatService.send({ question: lastUser.content });
+      const res = await chatService.send({
+        question: lastUser.content,
+        conversationId: activeId || undefined,
+      });
       const reply: ChatMessage = {
         id: `a-${Date.now()}`,
         role: 'assistant',
@@ -178,6 +231,10 @@ export default function ChatPage() {
       setIsTyping(false);
     }
   };
+
+  if (isLoading) {
+    return <div className="flex h-[calc(100vh-4rem)] items-center justify-center text-sm text-muted-foreground">Loading conversations...</div>;
+  }
 
   return (
     <div className="flex h-[calc(100vh-4rem)] overflow-hidden lg:h-screen">

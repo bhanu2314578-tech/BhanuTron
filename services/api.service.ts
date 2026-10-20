@@ -6,6 +6,8 @@ import type {
   DocumentItem,
   UpdateProfileInput,
   UserProfile,
+  HistoryConversation,
+  UsageResponse,
 } from '@/types';
 
 export const documentService = {
@@ -80,6 +82,42 @@ export const userService = {
     if (res.error || !res.data) {
       throw new Error(res.error ?? 'Failed to update profile');
     }
+    return res.data;
+  },
+};
+
+export const historyService = {
+  async list(): Promise<HistoryConversation[]> {
+    const res = await apiRequest<HistoryConversation[]>(API_ROUTES.history);
+    if (res.error || !res.data) throw new Error(res.error ?? 'Failed to load history');
+    return res.data;
+  },
+
+  async get(id: string): Promise<HistoryConversation> {
+    const res = await apiRequest<HistoryConversation>(`${API_ROUTES.history}/${id}`);
+    if (res.error || !res.data) throw new Error(res.error ?? 'Failed to load conversation');
+    return res.data;
+  },
+
+  async create(title = 'New Chat'): Promise<HistoryConversation> {
+    const res = await apiRequest<HistoryConversation>(API_ROUTES.history, {
+      method: 'POST',
+      body: JSON.stringify({ title }),
+    });
+    if (res.error || !res.data) throw new Error(res.error ?? 'Failed to create conversation');
+    return res.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    const res = await apiRequest(`${API_ROUTES.history}/${id}`, { method: 'DELETE' });
+    if (res.error) throw new Error(res.error);
+  },
+};
+
+export const usageService = {
+  async get(): Promise<UsageResponse> {
+    const res = await apiRequest<UsageResponse>(API_ROUTES.usage);
+    if (res.error || !res.data) throw new Error(res.error ?? 'Failed to load usage');
     return res.data;
   },
 };

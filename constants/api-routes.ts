@@ -7,6 +7,8 @@ export const API_ROUTES = {
   documents: '/api/documents',
   upload: '/api/upload',
   chat: '/api/chat',
+  history: '/api/history',
+  usage: '/api/usage',
   user: {
     profile: '/api/user/profile',
     update: '/api/user/update',
