@@ -3,8 +3,18 @@ import { toast } from 'sonner';
 import { tokenStorage } from '@/lib/token';
 import type { ApiResponse } from '@/types';
 
-export const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001';
+const configuredApiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+export const API_BASE_URL = (
+  configuredApiUrl ||
+  (process.env.NODE_ENV === 'development' ? 'http://localhost:3001' : '')
+).replace(/\/+$/, '');
+
+function buildApiUrl(path: string): string {
+  if (!API_BASE_URL) {
+    throw new Error('NEXT_PUBLIC_API_URL must be set for production');
+  }
+  return `${API_BASE_URL}${path}`;
+}
 
 export class ApiError extends Error {
   status: number;
@@ -45,10 +55,10 @@ export async function apiRequest<T>(
   path: string,
   options?: RequestOptions
 ): Promise<ApiResponse<T>> {
-  const url = `${API_BASE_URL}${path}`;
   const { isMultipart, ...fetchOptions } = options ?? {};
 
   try {
+    const url = buildApiUrl(path);
     const response = await fetch(url, {
       ...fetchOptions,
       headers: {
@@ -74,6 +84,11 @@ export async function apiRequest<T>(
       const message =
         (typeof data === 'object' && data !== null && 'message' in data
           ? String((data as { message: unknown }).message)
+          : typeof data === 'object' &&
+              data !== null &&
+              'detail' in data &&
+              typeof (data as { detail: unknown }).detail === 'string'
+            ? String((data as { detail: string }).detail)
           : null) ?? `Request failed (${response.status})`;
       if (response.status >= 500) {
         toast.error('Server error', {
@@ -109,7 +124,16 @@ export function uploadFile(
   onProgress?: (percent: number) => void
 ): Promise<ApiResponse<unknown>> {
   return new Promise((resolve) => {
-    const url = `${API_BASE_URL}${path}`;
+    let url: string;
+    try {
+      url = buildApiUrl(path);
+    } catch (error) {
+      resolve({
+        error: error instanceof Error ? error.message : 'API URL is missing',
+        status: 0,
+      });
+      return;
+    }
     const formData = new FormData();
     formData.append('file', file);
 
@@ -139,11 +163,17 @@ export function uploadFile(
       if (xhr.status >= 200 && xhr.status < 300) {
         resolve({ data, status: xhr.status });
       } else {
+        const responseData =
+          typeof data === 'object' && data !== null
+            ? (data as { message?: unknown; detail?: unknown })
+            : {};
         resolve({
           error:
-            (typeof data === 'object' && data !== null && 'message' in data
-              ? String((data as { message: unknown }).message)
-              : null) ?? `Upload failed (${xhr.status})`,
+            (typeof responseData.message === 'string'
+              ? responseData.message
+              : typeof responseData.detail === 'string'
+                ? responseData.detail
+                : null) ?? `Upload failed (${xhr.status})`,
           status: xhr.status,
         });
       }
