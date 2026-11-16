@@ -1,19 +1,26 @@
 from functools import cached_property
+from pathlib import Path
 from typing import Any
 
-from pydantic import SecretStr
+from pydantic import AliasChoices, Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=Path(__file__).with_name(".env"),
         env_file_encoding="utf-8",
         extra="ignore",
     )
 
     supabase_url: str = ""
-    supabase_anon_key: SecretStr = SecretStr("")
+    supabase_anon_key: SecretStr = Field(
+        default=SecretStr(""),
+        validation_alias=AliasChoices(
+            "SUPABASE_ANON_KEY",
+            "NEXT_PUBLIC_SUPABASE_ANON_KEY",
+        ),
+    )
     supabase_service_role_key: SecretStr = SecretStr("")
     groq_api_key: SecretStr = SecretStr("")
     groq_model: str = "llama-3.3-70b-versatile"

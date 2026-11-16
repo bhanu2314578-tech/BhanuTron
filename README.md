@@ -42,7 +42,8 @@ Copy-Item .env.example .env
 python -m uvicorn main:app --reload --port 3001
 ```
 
-Fill in `backend/.env` with the Supabase project URL, Supabase anon key,
+Fill in `backend/.env` with the Supabase project URL, Supabase anon key
+(`SUPABASE_ANON_KEY` or `NEXT_PUBLIC_SUPABASE_ANON_KEY`),
 Supabase service-role key, Groq API key, and the production frontend origin in
 `CORS_ORIGINS`. Keep the service-role key and Groq key only on the backend.
 The health endpoint is `/health`; interactive API docs are at `/docs`.

@@ -1,6 +1,8 @@
 import unittest
 from datetime import datetime, timezone
 from io import BytesIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import uuid4
@@ -8,6 +10,7 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 from docx import Document as WordDocument
 
+from config import Settings
 from main import app
 from routers.auth import AuthUser, get_current_user
 from routers.documents import _detect_file_type
@@ -136,6 +139,24 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
+
+    def test_backend_settings_load_from_backend_env_and_accept_public_anon_key(self) -> None:
+        env_file = Path(Settings.model_config["env_file"])
+
+        self.assertTrue(env_file.is_absolute())
+        self.assertEqual(env_file, Path(__file__).resolve().parents[1] / ".env")
+
+        with TemporaryDirectory() as temp_dir:
+            test_env = Path(temp_dir) / ".env"
+            test_env.write_text(
+                "SUPABASE_URL=https://project.example\n"
+                "NEXT_PUBLIC_SUPABASE_ANON_KEY=test-anon-key\n",
+                encoding="utf-8",
+            )
+            configured = Settings(_env_file=test_env)
+
+        self.assertEqual(configured.supabase_url, "https://project.example")
+        self.assertEqual(configured.get_secret("supabase_anon_key"), "test-anon-key")
 
     def test_protected_route_requires_bearer_token(self) -> None:
         override = app.dependency_overrides.pop(get_current_user)
