@@ -54,7 +54,9 @@ Create a Render Web Service with **Root Directory** `backend`, **Build Command**
 `pip install -r requirements.txt`, and **Start Command**
 `uvicorn main:app --host 0.0.0.0 --port $PORT`. Set the backend environment
 variables from `backend/.env.example` in Render. Set `CORS_ORIGINS` to the exact
-frontend origin(s), comma-separated.
+frontend origin(s), comma-separated, with no trailing slash. For the current
+Vercel deployment, use
+`http://localhost:3000,https://bhanu-tron.vercel.app`.
 
 Before deployment, run `backend/supabase/schema.sql` in the Supabase SQL editor.
 It is designed to be re-run: it creates missing tables/indexes, adds `job_title`

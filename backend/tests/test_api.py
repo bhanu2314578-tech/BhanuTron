@@ -140,6 +140,20 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"status": "ok"})
 
+    def test_cors_preflight_allows_production_frontend(self) -> None:
+        origin = "https://bhanu-tron.vercel.app"
+        response = self.client.options(
+            "/api/auth/login",
+            headers={
+                "Origin": origin,
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.headers["access-control-allow-origin"], origin)
+
     def test_backend_settings_load_from_backend_env_and_accept_public_anon_key(self) -> None:
         env_file = Path(Settings.model_config["env_file"])
 
@@ -157,6 +171,17 @@ class ApiTests(unittest.TestCase):
 
         self.assertEqual(configured.supabase_url, "https://project.example")
         self.assertEqual(configured.get_secret("supabase_anon_key"), "test-anon-key")
+
+    def test_default_cors_origins_include_production_frontend(self) -> None:
+        configured = Settings(_env_file=None)
+
+        self.assertIn("http://localhost:3000", configured.allowed_origins)
+        self.assertIn("https://bhanu-tron.vercel.app", configured.allowed_origins)
+        configured = Settings(
+            _env_file=None,
+            cors_origins="https://bhanu-tron.vercel.app/",
+        )
+        self.assertEqual(configured.allowed_origins, ["https://bhanu-tron.vercel.app"])
 
     def test_protected_route_requires_bearer_token(self) -> None:
         override = app.dependency_overrides.pop(get_current_user)

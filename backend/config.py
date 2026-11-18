@@ -26,14 +26,18 @@ class Settings(BaseSettings):
     groq_model: str = "llama-3.3-70b-versatile"
     embedding_model: str = "all-MiniLM-L6-v2"
     embedding_dimension: int = 384
-    cors_origins: str = "http://localhost:3000"
+    cors_origins: str = "http://localhost:3000,https://bhanu-tron.vercel.app"
     storage_bucket: str = "documents"
     max_upload_bytes: int = 50 * 1024 * 1024
     max_question_chars: int = 10_000
 
     @cached_property
     def allowed_origins(self) -> list[str]:
-        return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+        return [
+            origin.strip().rstrip("/")
+            for origin in self.cors_origins.split(",")
+            if origin.strip()
+        ]
 
     def require(self, *names: str) -> None:
         missing = []
